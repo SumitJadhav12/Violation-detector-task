@@ -1,0 +1,42 @@
+# Environments
+.venv/
+env/
+venv/
+myenv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.ipynb_checkpoints/
+
+# Datasets and large media files
+datasets/
+data/raw/
+*.mp4
+*.avi
+*.mov
+!outputs/sample_output.mp4
+
+# Model weights
+runs/
+*.pt
+*.onnx
+outputs/models/*
+!outputs/models/.gitkeep
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Output artifacts
+outputs/snapshots/*
+!outputs/snapshots/.gitkeep
+outputs/videos/*
+!outputs/videos/.gitkeep
+outputs/reports/*
+!outputs/reports/.gitkeep
