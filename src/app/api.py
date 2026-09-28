@@ -5,7 +5,9 @@ FastAPI Router for Video Violation Detection Service
 import os
 import shutil
 import json
+import urllib.parse
 from typing import Optional, List
+import cv2
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
 
 from src.app.schemas import (
@@ -22,6 +24,106 @@ router = APIRouter(prefix="/api/v1", tags=["Safety Detection"])
 
 UPLOAD_DIR = "outputs/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+SUPPORTED_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.webm', '.m4v', '.wmv')
+
+
+def resolve_video_source(raw_path: str) -> tuple[str, str]:
+    """
+    Cleans and resolves user-supplied paths:
+    - Strips surrounding quotes, whitespace, and shell prefixes
+    - Expands user home directories (~) and environment variables
+    - Handles file:// URIs
+    - If path is a folder (e.g. C:\\Users\\sj165\\Downloads):
+      locates all supported video files, prioritizes non-annotated raw source videos,
+      and automatically selects the latest modified video.
+    - If path is a direct file:
+      validates existence and supported extension.
+    """
+    if not raw_path or not raw_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Video path is empty. Please enter a valid video file or folder path."
+        )
+
+    cleaned = raw_path.strip()
+    if cleaned.startswith("&"):
+        cleaned = cleaned[1:].strip()
+
+    cleaned = cleaned.strip('"').strip("'").strip()
+
+    if cleaned.lower().startswith("file:///"):
+        cleaned = urllib.parse.unquote(cleaned[8:])
+    elif cleaned.lower().startswith("file://"):
+        cleaned = urllib.parse.unquote(cleaned[7:])
+
+    cleaned = cleaned.strip('"').strip("'").strip()
+    expanded = os.path.expanduser(os.path.expandvars(cleaned))
+    norm_path = os.path.normpath(expanded)
+
+    if not os.path.exists(norm_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path not found: '{cleaned}'. Please check the directory or file path and try again."
+        )
+
+    if os.path.isdir(norm_path):
+        candidate_files: List[str] = []
+        try:
+            for fname in os.listdir(norm_path):
+                fpath = os.path.join(norm_path, fname)
+                if os.path.isfile(fpath) and fname.lower().endswith(SUPPORTED_VIDEO_EXTENSIONS):
+                    candidate_files.append(fpath)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Error accessing directory '{norm_path}': {str(e)}"
+            )
+
+        if not candidate_files:
+            for root, _, files in os.walk(norm_path):
+                for f in files:
+                    if f.lower().endswith(SUPPORTED_VIDEO_EXTENSIONS):
+                        candidate_files.append(os.path.join(root, f))
+                if candidate_files:
+                    break
+
+        if not candidate_files:
+            ext_str = ", ".join(SUPPORTED_VIDEO_EXTENSIONS)
+            raise HTTPException(
+                status_code=400,
+                detail=f"No supported video files ({ext_str}) found in folder: '{norm_path}'. Please copy a video into this folder or specify the video file directly."
+            )
+
+        # Prioritize raw source videos over previously annotated output videos
+        raw_videos = [f for f in candidate_files if not os.path.basename(f).lower().startswith("annotated_")]
+        if raw_videos:
+            chosen = max(raw_videos, key=os.path.getmtime)
+        else:
+            chosen = max(candidate_files, key=os.path.getmtime)
+
+        resolved_path = os.path.abspath(chosen)
+        message = (
+            f"Folder detected: Automatically selected latest video '{os.path.basename(chosen)}' "
+            f"from '{norm_path}'."
+        )
+        return resolved_path, message
+
+    if os.path.isfile(norm_path):
+        if not norm_path.lower().endswith(SUPPORTED_VIDEO_EXTENSIONS):
+            ext_str = ", ".join(SUPPORTED_VIDEO_EXTENSIONS)
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{os.path.basename(norm_path)}' is not a supported video format ({ext_str})."
+            )
+        resolved_path = os.path.abspath(norm_path)
+        message = f"Selected video file '{os.path.basename(resolved_path)}' for processing."
+        return resolved_path, message
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Invalid path type for '{cleaned}'. Please specify a file or folder."
+    )
 
 
 def get_default_model_path() -> str:
@@ -50,21 +152,36 @@ async def upload_video_for_detection(
     """
     Submits a video for asynchronous helmet safety violation detection.
     Does NOT block the server; returns immediately with a Job ID.
-    Accepts either an uploaded video file or a local file path.
+    Accepts:
+      - Uploaded video file (multipart form data)
+      - Direct local video file path (e.g. C:\\Users\\...\\video.mp4)
+      - Local folder path (e.g. C:\\Users\\sj165\\Downloads) - automatically selects the latest video!
     """
+    status_msg = "Video processing initiated asynchronously."
     if file is not None and file.filename:
-        saved_filename = f"upload_{file.filename}"
+        safe_filename = os.path.basename(file.filename)
+        saved_filename = f"upload_{safe_filename}"
         saved_path = os.path.join(UPLOAD_DIR, saved_filename)
         with open(saved_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        target_video_path = saved_path
-    elif video_path and os.path.exists(video_path):
-        target_video_path = video_path
+        target_video_path, status_msg = resolve_video_source(saved_path)
+    elif video_path:
+        target_video_path, status_msg = resolve_video_source(video_path)
     else:
         raise HTTPException(
             status_code=400,
-            detail="Must provide either an uploaded video file or a valid local video_path"
+            detail="Must provide either an uploaded video file or a valid local video_path or folder path"
         )
+
+    # Validate that OpenCV can open the video stream before queueing
+    cap = cv2.VideoCapture(target_video_path)
+    if not cap.isOpened():
+        cap.release()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to read video file '{target_video_path}'. File may be corrupted or an invalid video stream."
+        )
+    cap.release()
 
     # Register job
     job = job_manager.create_job(target_video_path)
@@ -84,9 +201,10 @@ async def upload_video_for_detection(
     return JobCreateResponse(
         job_id=job.job_id,
         status=JobStatus.PENDING,
-        message="Video processing initiated asynchronously.",
+        message=status_msg,
         poll_url=f"{base_url}/api/v1/jobs/{job.job_id}",
-        report_url=f"{base_url}/api/v1/jobs/{job.job_id}/report"
+        report_url=f"{base_url}/api/v1/jobs/{job.job_id}/report",
+        resolved_video_path=target_video_path
     )
 
 

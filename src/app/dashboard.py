@@ -4,7 +4,7 @@ Sleek, dark-mode, glassmorphism UI for monitoring video streams,
 viewing annotated footage, inspecting unique violation snapshots, and triggering detection jobs.
 """
 
-DASHBOARD_HTML = """<!DOCTYPE html>
+DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -467,6 +467,34 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       box-shadow: 0 0 0 2px var(--primary-glow);
     }
 
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      border-radius: 9999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .chip-btn:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--primary);
+      color: #93c5fd;
+    }
+
     /* PROGRESS BAR */
     .progress-box {
       margin-top: 18px;
@@ -673,12 +701,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <form id="detection-form" onsubmit="submitDetection(event)">
         <div class="form-grid">
           <div class="form-group">
-            <label for="videoPath">Local Video Path or Upload</label>
-            <input type="text" id="videoPath" class="input-field" value="outputs/uploads/39183-421020269.mp4" placeholder="Enter path to .mp4 or .avi file">
+            <label for="videoPath">Video Path / Folder or Browse File</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="videoPath" class="input-field" value="C:\Users\sj165\Downloads" placeholder="e.g. C:\Users\sj165\Downloads or direct .mp4 path" oninput="onPathTyped()">
+              <input type="file" id="filePicker" accept="video/mp4,video/avi,video/quicktime,video/x-matroska,video/*" style="display: none;" onchange="handleFilePicked(event)">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('filePicker').click()" style="white-space: nowrap; padding: 0 16px; font-size: 13px;" title="Browse video file from computer">
+                📁 Browse
+              </button>
+            </div>
+            <div class="chips-row">
+              <span style="font-size: 11px; color: var(--text-muted); align-self: center;">Quick Select:</span>
+              <button type="button" class="chip-btn" onclick="setPath('C:\\Users\\sj165\\Downloads')">📁 Downloads Folder</button>
+              <button type="button" class="chip-btn" onclick="setPath('outputs/uploads/42926-434300944.mp4')">🏗️ Construction Site</button>
+              <button type="button" class="chip-btn" onclick="setPath('C:\\Users\\sj165\\Downloads\\task1.mp4')">🚨 Violations (task1.mp4)</button>
+              <button type="button" class="chip-btn" onclick="setPath('outputs/uploads/39183-421020269.mp4')">🌙 Night Worker</button>
+            </div>
           </div>
           <div class="form-group">
             <label for="confThresh">Confidence Threshold</label>
-            <input type="number" id="confThresh" class="input-field" step="0.05" min="0.1" max="0.95" value="0.35">
+            <input type="number" id="confThresh" class="input-field" step="0.05" min="0.05" max="0.95" value="0.20">
           </div>
           <div class="form-group">
             <label for="maxFrames">Max Frames (0 for all)</label>
@@ -914,17 +955,37 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     // Initialize with construction video profile
     switchVideo('construction');
 
+    // File picker and shortcut helpers
+    let selectedUploadFile = null;
+
+    function handleFilePicked(event) {
+      const file = event.target.files[0];
+      if (file) {
+        selectedUploadFile = file;
+        document.getElementById('videoPath').value = `[Browse Upload]: ${file.name}`;
+      }
+    }
+
+    function onPathTyped() {
+      selectedUploadFile = null;
+    }
+
+    function setPath(p) {
+      selectedUploadFile = null;
+      document.getElementById('videoPath').value = p;
+    }
+
     // Async Detection Trigger & Polling
     let pollInterval = null;
 
     async function submitDetection(e) {
       e.preventDefault();
-      const videoPath = document.getElementById('videoPath').value.trim();
+      const rawPath = document.getElementById('videoPath').value.trim();
       const conf = parseFloat(document.getElementById('confThresh').value);
       const maxFramesVal = parseInt(document.getElementById('maxFrames').value);
 
-      if (!videoPath) {
-        alert('Please enter a video file path');
+      if (!selectedUploadFile && !rawPath) {
+        alert('Please enter a video or folder path, or browse to select a file.');
         return;
       }
 
@@ -944,7 +1005,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       try {
         const formData = new FormData();
-        formData.append('video_path', videoPath);
+        if (selectedUploadFile) {
+          formData.append('file', selectedUploadFile);
+        } else {
+          formData.append('video_path', rawPath);
+        }
         formData.append('conf_threshold', conf);
         if (maxFramesVal > 0) {
           formData.append('max_frames', maxFramesVal);
@@ -962,7 +1027,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         const data = await res.json();
         const jobId = data.job_id;
-        progressText.innerText = 'Processing video: Job ID ' + jobId.substring(0, 8) + '...';
+
+        if (data.resolved_video_path) {
+          document.getElementById('videoPath').value = data.resolved_video_path;
+        }
+
+        progressText.innerText = data.message || ('Processing job ' + jobId.substring(0, 8) + '...');
 
         // Poll every 1.5s
         if (pollInterval) clearInterval(pollInterval);
@@ -975,11 +1045,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const pct = Math.round(statusData.progress_percentage || 0);
             progressFill.style.width = pct + '%';
             progressPct.innerText = pct + '%';
-            progressText.innerText = `Processed ${statusData.frames_processed} / ${statusData.total_frames || '?'} frames (${pct}%)`;
+            progressText.innerText = `Processing: ${statusData.frames_processed} / ${statusData.total_frames || '?'} frames (${pct}%)`;
 
             if (statusData.status === 'completed') {
               clearInterval(pollInterval);
-              progressText.innerText = 'Detection completed successfully! Fetching report...';
+              progressText.innerText = 'Detection completed successfully! Updating dashboard...';
               submitBtn.disabled = false;
               submitBtn.innerHTML = '<span>▶ Run Detection</span>';
               fetchFinalReport(jobId);

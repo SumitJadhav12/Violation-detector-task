@@ -39,6 +39,7 @@ class JobCreateResponse(BaseModel):
     message: str
     poll_url: str
     report_url: str
+    resolved_video_path: Optional[str] = None
 
 
 class JobStatusResponse(BaseModel):
