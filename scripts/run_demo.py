@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--video", type=str, required=True, help="Path to input video (.mp4, .avi, etc.)")
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to model (.pt or .onnx)")
     parser.add_argument("--output-dir", type=str, default="outputs", help="Directory to save snapshots and video")
-    parser.add_argument("--conf", type=float, default=0.35, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.20, help="Confidence threshold")
     parser.add_argument("--max-frames", type=int, default=None, help="Limit maximum frames to process (optional)")
     args = parser.parse_args()
 

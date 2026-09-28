@@ -44,7 +44,7 @@ async def upload_video_for_detection(
     request: Request,
     file: Optional[UploadFile] = File(None),
     video_path: Optional[str] = Form(None),
-    conf_threshold: float = Form(0.35),
+    conf_threshold: float = Form(0.20),
     max_frames: Optional[int] = Form(None)
 ):
     """

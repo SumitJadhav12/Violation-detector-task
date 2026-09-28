@@ -31,7 +31,7 @@ class VideoSafetyProcessor:
         self,
         detector: BaseDetector,
         output_dir: str = "outputs",
-        conf_threshold: float = 0.35,
+        conf_threshold: float = 0.20,
         iou_threshold: float = 0.45
     ):
         self.detector = detector
