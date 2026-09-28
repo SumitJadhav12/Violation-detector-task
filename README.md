@@ -106,8 +106,8 @@ The service is packaged with an **optimized INT8 ONNX inference engine** tailore
 
 ### 1. Clone & Setup Environment
 ```powershell
-git clone https://github.com/SumitJadhav12/ML-Internship-Task.git
-cd ML-Internship-Task
+git clone https://github.com/SumitJadhav12/Violation-detector-task.git
+cd Violation-detector-task
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -367,4 +367,4 @@ All submitted jobs are backed by JSON records in `outputs/jobs/{job_id}.json`. I
 **Sumit Jadhav**  
 *AI / ML Engineer (Computer Vision)*  
 *GitHub*: [@SumitJadhav12](https://github.com/SumitJadhav12)  
-*Repository*: [ML-Internship-Task](https://github.com/SumitJadhav12/ML-Internship-Task)
+*Repository*: [ASSESSMENT-Task]( https://github.com/SumitJadhav12/Violation-detector-task.git )

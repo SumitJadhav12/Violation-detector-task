@@ -619,7 +619,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           <span>System Online: CPU Mode</span>
         </div>
         <a href="/docs" target="_blank" class="btn btn-secondary">Swagger API Docs</a>
-        <a href="https://github.com/SumitJadhav12/ML-Internship-Task" target="_blank" class="btn btn-secondary">GitHub Repo</a>
+        <a href="https://github.com/SumitJadhav12/Violation-detector-task" target="_blank" class="btn btn-secondary">GitHub Repo</a>
       </div>
     </header>
 
