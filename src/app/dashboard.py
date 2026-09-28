@@ -597,11 +597,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     <!-- VIDEO SELECTION TABS -->
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-uploaded" onclick="switchVideo('uploaded')">
-        🎥 Newly Uploaded: 39183-421020269.mp4 (1 Worker, Helmet Compliant)
+      <button class="tab-btn active" id="tab-construction" onclick="switchVideo('construction')">
+        🏗️ Construction Site: 42926-434300944.mp4 (19 Workers Tracked)
       </button>
       <button class="tab-btn" id="tab-task1" onclick="switchVideo('task1')">
-        🚨 Assessment Video: task1.mp4 (2 Workers, 2 Unique Violations)
+        🚨 Violations Video: task1.mp4 (2 Workers, 2 Unique Violations)
+      </button>
+      <button class="tab-btn" id="tab-uploaded" onclick="switchVideo('uploaded')">
+        🎥 Night Worker: 39183-421020269.mp4 (1 Worker, Compliant)
       </button>
     </div>
 
@@ -779,16 +782,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     const videoElem = document.getElementById('annotated-video');
 
     const VIDEO_PROFILES = {
-      uploaded: {
-        frames: '135',
-        duration: 'Full duration: 5.62s @ 24 FPS',
-        workers: '1',
+      construction: {
+        frames: '490',
+        duration: 'Full duration: 16.35s @ 30 FPS',
+        workers: '19',
         violations: '0',
         violColor: '#10b981',
-        violSub: '100% Compliant (All Helmets Worn)',
-        videoUrl: '/static/videos/annotated_39183-421020269_1790571786.mp4',
-        filename: 'Source: annotated_39183-421020269_1790571786.mp4',
-        inputPath: 'outputs/uploads/39183-421020269.mp4',
+        violSub: '100% Compliant (19 Hard Hats Tracked)',
+        videoUrl: '/static/videos/annotated_42926-434300944_1790573945.mp4',
+        filename: 'Source: annotated_42926-434300944_1790573945.mp4',
+        inputPath: 'outputs/uploads/42926-434300944.mp4',
         violationsList: []
       },
       task1: {
@@ -821,12 +824,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             desc: 'Worker moving across scene without helmet'
           }
         ]
+      },
+      uploaded: {
+        frames: '135',
+        duration: 'Full duration: 5.62s @ 24 FPS',
+        workers: '1',
+        violations: '0',
+        violColor: '#10b981',
+        violSub: '100% Compliant (All Helmets Worn)',
+        videoUrl: '/static/videos/annotated_39183-421020269_1790571786.mp4',
+        filename: 'Source: annotated_39183-421020269_1790571786.mp4',
+        inputPath: 'outputs/uploads/39183-421020269.mp4',
+        violationsList: []
       }
     };
 
     function switchVideo(profileKey) {
-      document.getElementById('tab-uploaded').classList.toggle('active', profileKey === 'uploaded');
+      document.getElementById('tab-construction').classList.toggle('active', profileKey === 'construction');
       document.getElementById('tab-task1').classList.toggle('active', profileKey === 'task1');
+      document.getElementById('tab-uploaded').classList.toggle('active', profileKey === 'uploaded');
 
       const p = VIDEO_PROFILES[profileKey];
       document.getElementById('stat-frames').innerText = p.frames;
@@ -895,8 +911,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('imageModal').style.display = 'none';
     }
 
-    // Initialize with uploaded video profile
-    switchVideo('uploaded');
+    // Initialize with construction video profile
+    switchVideo('construction');
 
     // Async Detection Trigger & Polling
     let pollInterval = null;

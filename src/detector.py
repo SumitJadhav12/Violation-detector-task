@@ -222,6 +222,8 @@ class ONNXDetector(BaseDetector):
         detections: List[Detection] = []
         unique_classes = np.unique(class_ids)
         for cls in unique_classes:
+            if int(cls) not in [0, 1]:
+                continue
             cls_mask = class_ids == cls
             cls_boxes = xyxy[cls_mask]
             cls_scores = scores[cls_mask]
