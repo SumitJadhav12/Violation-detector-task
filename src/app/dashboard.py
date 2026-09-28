@@ -170,6 +170,31 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       background: rgba(255, 255, 255, 0.1);
     }
 
+    /* SELECTOR TABS */
+    .tab-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--primary);
+      color: #60a5fa;
+    }
+
     /* STATS GRID */
     .stats-grid {
       display: grid;
@@ -382,6 +407,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-muted);
     }
 
+    /* COMPLIANT BADGE */
+    .compliant-box {
+      padding: 32px 20px;
+      text-align: center;
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px dashed rgba(16, 185, 129, 0.3);
+      border-radius: var(--radius-md);
+    }
+
+    .compliant-icon {
+      font-size: 44px;
+      margin-bottom: 10px;
+    }
+
     /* RUN DETECTION FORM */
     .form-card {
       margin-bottom: 28px;
@@ -556,22 +595,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </header>
 
+    <!-- VIDEO SELECTION TABS -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-uploaded" onclick="switchVideo('uploaded')">
+        🎥 Newly Uploaded: 39183-421020269.mp4 (1 Worker, Helmet Compliant)
+      </button>
+      <button class="tab-btn" id="tab-task1" onclick="switchVideo('task1')">
+        🚨 Assessment Video: task1.mp4 (2 Workers, 2 Unique Violations)
+      </button>
+    </div>
+
     <!-- TOP KPI STATS -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Total Frames Processed <span>⏱️</span></div>
-        <div class="stat-val" id="stat-frames">2,690</div>
-        <div class="stat-sub">Full duration: 89.67s @ 30 FPS</div>
+        <div class="stat-val" id="stat-frames">135</div>
+        <div class="stat-sub" id="stat-duration">Full duration: 5.62s @ 24 FPS</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Workers Tracked <span>👷</span></div>
-        <div class="stat-val" id="stat-workers">2</div>
-        <div class="stat-sub">ByteTrack unique identities</div>
+        <div class="stat-val" id="stat-workers">1</div>
+        <div class="stat-sub">ByteTrack unique spatial identities</div>
       </div>
       <div class="stat-card danger">
         <div class="stat-label">Unique Violations <span>🚨</span></div>
-        <div class="stat-val" id="stat-violations" style="color: #ef4444;">2</div>
-        <div class="stat-sub">Counted once per worker (Debounced)</div>
+        <div class="stat-val" id="stat-violations" style="color: #10b981;">0</div>
+        <div class="stat-sub" id="stat-viol-sub">100% Compliant (All Helmets Worn)</div>
       </div>
       <div class="stat-card success">
         <div class="stat-label">Model Memory Size <span>⚡</span></div>
@@ -590,13 +639,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
         <div class="video-wrapper">
           <video id="annotated-video" controls preload="metadata">
-            <source src="/static/videos/annotated_task1_1790492077.mp4" type="video/mp4">
+            <source id="video-source" src="/static/videos/annotated_39183-421020269_1790571786.mp4" type="video/mp4">
             Your browser does not support HTML5 video.
           </video>
         </div>
         <div class="video-meta">
-          <span id="video-filename">Source: annotated_task1_1790492077.mp4</span>
-          <a href="/static/videos/annotated_task1_1790492077.mp4" download class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">Download Annotated Video</a>
+          <span id="video-filename">Source: annotated_39183-421020269_1790571786.mp4</span>
+          <a id="video-download-btn" href="/static/videos/annotated_39183-421020269_1790571786.mp4" download class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">Download Annotated Video</a>
         </div>
       </div>
 
@@ -607,31 +656,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <span class="tag" style="background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3);">Timestamped Crops</span>
         </div>
         <div class="violations-list" id="violations-container">
-          <!-- Violation Item 1 -->
-          <div class="violation-item" onclick="openModal('/static/snapshots/violation_track_1_100ms.jpg', 'Track #1: 00:00:00.100 (Conf: 56.0%)', 0.1)">
-            <img src="/static/snapshots/violation_track_1_100ms.jpg" alt="Violation 1" class="violation-thumb">
-            <div class="violation-info">
-              <div class="viol-header">
-                <span class="viol-tag">TRACK #1</span>
-                <span class="viol-time">00:00:00.100</span>
-              </div>
-              <div class="viol-desc">Frame #4 • Conf: 56.0% • No Helmet Detected</div>
-              <div style="font-size: 11px; color: #60a5fa; margin-top: 4px;">▶ Click to jump video & view</div>
-            </div>
-          </div>
-
-          <!-- Violation Item 2 -->
-          <div class="violation-item" onclick="openModal('/static/snapshots/violation_track_2_7333ms.jpg', 'Track #2: 00:00:07.333 (Conf: 64.4%)', 7.33)">
-            <img src="/static/snapshots/violation_track_2_7333ms.jpg" alt="Violation 2" class="violation-thumb">
-            <div class="violation-info">
-              <div class="viol-header">
-                <span class="viol-tag">TRACK #2</span>
-                <span class="viol-time">00:00:07.333</span>
-              </div>
-              <div class="viol-desc">Frame #221 • Conf: 64.4% • Worker without Helmet</div>
-              <div style="font-size: 11px; color: #60a5fa; margin-top: 4px;">▶ Click to jump video & view</div>
-            </div>
-          </div>
+          <!-- Populated by JavaScript -->
         </div>
       </div>
     </div>
@@ -646,7 +671,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="form-grid">
           <div class="form-group">
             <label for="videoPath">Local Video Path or Upload</label>
-            <input type="text" id="videoPath" class="input-field" value="C:/Users/sj165/Downloads/task1.mp4" placeholder="Enter path to .mp4 or .avi file">
+            <input type="text" id="videoPath" class="input-field" value="outputs/uploads/39183-421020269.mp4" placeholder="Enter path to .mp4 or .avi file">
           </div>
           <div class="form-group">
             <label for="confThresh">Confidence Threshold</label>
@@ -753,6 +778,107 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <script>
     const videoElem = document.getElementById('annotated-video');
 
+    const VIDEO_PROFILES = {
+      uploaded: {
+        frames: '135',
+        duration: 'Full duration: 5.62s @ 24 FPS',
+        workers: '1',
+        violations: '0',
+        violColor: '#10b981',
+        violSub: '100% Compliant (All Helmets Worn)',
+        videoUrl: '/static/videos/annotated_39183-421020269_1790571786.mp4',
+        filename: 'Source: annotated_39183-421020269_1790571786.mp4',
+        inputPath: 'outputs/uploads/39183-421020269.mp4',
+        violationsList: []
+      },
+      task1: {
+        frames: '2,690',
+        duration: 'Full duration: 89.67s @ 30 FPS',
+        workers: '2',
+        violations: '2',
+        violColor: '#ef4444',
+        violSub: 'Counted once per worker (Debounced)',
+        videoUrl: '/static/videos/annotated_task1_1790492077.mp4',
+        filename: 'Source: annotated_task1_1790492077.mp4',
+        inputPath: 'C:/Users/sj165/Downloads/task1.mp4',
+        violationsList: [
+          {
+            track_id: 1,
+            time: '00:00:00.100',
+            timeSec: 0.1,
+            frame: 4,
+            conf: 56.0,
+            img: '/static/snapshots/violation_track_1_100ms.jpg',
+            desc: 'Initial entry without safety helmet'
+          },
+          {
+            track_id: 2,
+            time: '00:00:07.333',
+            timeSec: 7.33,
+            frame: 221,
+            conf: 64.4,
+            img: '/static/snapshots/violation_track_2_7333ms.jpg',
+            desc: 'Worker moving across scene without helmet'
+          }
+        ]
+      }
+    };
+
+    function switchVideo(profileKey) {
+      document.getElementById('tab-uploaded').classList.toggle('active', profileKey === 'uploaded');
+      document.getElementById('tab-task1').classList.toggle('active', profileKey === 'task1');
+
+      const p = VIDEO_PROFILES[profileKey];
+      document.getElementById('stat-frames').innerText = p.frames;
+      document.getElementById('stat-duration').innerText = p.duration;
+      document.getElementById('stat-workers').innerText = p.workers;
+      document.getElementById('stat-violations').innerText = p.violations;
+      document.getElementById('stat-violations').style.color = p.violColor;
+      document.getElementById('stat-viol-sub').innerText = p.violSub;
+
+      videoElem.src = p.videoUrl;
+      videoElem.load();
+      document.getElementById('video-filename').innerText = p.filename;
+      document.getElementById('video-download-btn').href = p.videoUrl;
+      document.getElementById('videoPath').value = p.inputPath;
+
+      renderViolations(p.violationsList);
+    }
+
+    function renderViolations(list) {
+      const container = document.getElementById('violations-container');
+      container.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        container.innerHTML = `
+          <div class="compliant-box">
+            <div class="compliant-icon">✅</div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #34d399; margin-bottom: 6px;">100% Safety Compliance</h4>
+            <p style="font-size: 13px; color: var(--text-muted);">All detected workers in this stream are properly wearing safety helmets with zero violations logged.</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.forEach(v => {
+        const item = document.createElement('div');
+        item.className = 'violation-item';
+        item.onclick = () => openModal(v.img, `Track #${v.track_id}: ${v.time} (Conf: ${v.conf}%)`, v.timeSec);
+        item.innerHTML = `
+          <img src="${v.img}" alt="Violation" class="violation-thumb">
+          <div class="violation-info">
+            <div class="viol-header">
+              <span class="viol-tag">TRACK #${v.track_id}</span>
+              <span class="viol-time">${v.time}</span>
+            </div>
+            <div class="viol-desc">Frame #${v.frame} • Conf: ${v.conf}% • ${v.desc}</div>
+            <div style="font-size: 11px; color: #60a5fa; margin-top: 4px;">▶ Click to jump video & view</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
     function openModal(imgSrc, title, timeSec) {
       document.getElementById('modalImg').src = imgSrc;
       document.getElementById('modalTitle').innerText = title;
@@ -769,22 +895,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById('imageModal').style.display = 'none';
     }
 
-    // Load latest report data on startup
-    async function loadLatestReport() {
-      try {
-        const resp = await fetch('/api/v1/latest-report');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (data.summary) {
-          document.getElementById('stat-frames').innerText = Number(data.summary.total_frames_processed).toLocaleString();
-          document.getElementById('stat-workers').innerText = data.summary.total_workers_detected;
-          document.getElementById('stat-violations').innerText = data.summary.unique_violations;
-        }
-      } catch (err) {
-        console.log('Using default report cached values.');
-      }
-    }
-    loadLatestReport();
+    // Initialize with uploaded video profile
+    switchVideo('uploaded');
 
     // Async Detection Trigger & Polling
     let pollInterval = null;
@@ -851,7 +963,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
             if (statusData.status === 'completed') {
               clearInterval(pollInterval);
-              progressText.innerText = 'Detection completed successfully! Fetching final report...';
+              progressText.innerText = 'Detection completed successfully! Fetching report...';
               submitBtn.disabled = false;
               submitBtn.innerHTML = '<span>▶ Run Detection</span>';
               fetchFinalReport(jobId);
@@ -889,28 +1001,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (rep.output_video_url) {
           videoElem.src = rep.output_video_url;
           videoElem.load();
+          document.getElementById('video-filename').innerText = 'Source: ' + rep.output_video_url.split('/').pop();
+          document.getElementById('video-download-btn').href = rep.output_video_url;
         }
 
-        if (rep.violations && rep.violations.length > 0) {
-          const container = document.getElementById('violations-container');
-          container.innerHTML = '';
-          rep.violations.forEach((v) => {
-            const item = document.createElement('div');
-            item.className = 'violation-item';
-            item.onclick = () => openModal(v.snapshot_url, `Track #${v.track_id}: ${v.formatted_timestamp}`, v.timestamp_sec);
-            item.innerHTML = `
-              <img src="${v.snapshot_url}" alt="Violation" class="violation-thumb">
-              <div class="violation-info">
-                <div class="viol-header">
-                  <span class="viol-tag">TRACK #${v.track_id}</span>
-                  <span class="viol-time">${v.formatted_timestamp}</span>
-                </div>
-                <div class="viol-desc">Frame #${v.frame_index} • Conf: ${(v.confidence * 100).toFixed(1)}%</div>
-                <div style="font-size: 11px; color: #60a5fa; margin-top: 4px;">▶ Click to jump video & view</div>
-              </div>
-            `;
-            container.appendChild(item);
-          });
+        if (rep.violations) {
+          const list = rep.violations.map(v => ({
+            track_id: v.track_id,
+            time: v.formatted_timestamp,
+            timeSec: v.timestamp_sec,
+            frame: v.frame_index,
+            conf: (v.confidence * 100).toFixed(1),
+            img: v.snapshot_url,
+            desc: 'Safety violation detected'
+          }));
+          renderViolations(list);
         }
       } catch (e) {
         console.error('Report fetch error:', e);
