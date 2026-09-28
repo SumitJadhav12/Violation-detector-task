@@ -183,6 +183,9 @@ async def upload_video_for_detection(
         )
     cap.release()
 
+    # Normalize max_frames <= 0 to None (all frames)
+    effective_max_frames = max_frames if (max_frames is not None and max_frames > 0) else None
+
     # Register job
     job = job_manager.create_job(target_video_path)
     model_path = get_default_model_path()
@@ -194,7 +197,7 @@ async def upload_video_for_detection(
         input_path=target_video_path,
         model_path=model_path,
         conf_threshold=conf_threshold,
-        max_frames=max_frames
+        max_frames=effective_max_frames
     )
 
     base_url = str(request.base_url).rstrip("/")
@@ -210,7 +213,7 @@ async def upload_video_for_detection(
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
-    """Poll the status and progress of a video analysis job."""
+    """Poll the live status and progress percentage of a video analysis job."""
     job = job_manager.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job ID not found")
@@ -230,6 +233,8 @@ async def get_job_report(job_id: str, request: Request):
     """
     Returns the final structured JSON report with total workers,
     unique violations, timestamps, and snapshot URLs.
+    If the video is still being processed in the background, returns
+    the current progress percentage and frame count.
     """
     job = job_manager.get_job(job_id)
     if not job:
@@ -239,13 +244,21 @@ async def get_job_report(job_id: str, request: Request):
         return JobReportResponse(
             job_id=job.job_id,
             status=job.status,
-            error=job.error
+            error=job.error,
+            message=f"Job processing failed: {job.error}"
         )
 
     if job.status != JobStatus.COMPLETED or not job.result:
+        pct = job.progress_percentage
+        cur = job.frames_processed
+        tot = job.total_frames or "?"
         return JobReportResponse(
             job_id=job.job_id,
-            status=job.status
+            status=job.status,
+            progress_percentage=pct,
+            frames_processed=cur,
+            total_frames=job.total_frames,
+            message=f"Video analysis in progress ({pct}% completed: {cur}/{tot} frames). Please poll again or monitor GET /api/v1/jobs/{job.job_id}."
         )
 
     base_url = str(request.base_url).rstrip("/")
@@ -273,6 +286,10 @@ async def get_job_report(job_id: str, request: Request):
     return JobReportResponse(
         job_id=job.job_id,
         status=job.status,
+        progress_percentage=100.0,
+        frames_processed=job.frames_processed,
+        total_frames=job.total_frames,
+        message="Video analysis completed successfully. Final structured report and HUD annotated video are available.",
         summary=summary_data,
         violations=violations_data,
         output_video_url=output_video_url
@@ -314,7 +331,12 @@ async def get_latest_report(request: Request):
     return JobReportResponse(
         job_id="latest-report",
         status=JobStatus.COMPLETED,
+        progress_percentage=100.0,
+        frames_processed=summary_data.total_frames_processed,
+        total_frames=summary_data.total_frames_processed,
+        message="Loaded most recent completed video analysis report.",
         summary=summary_data,
         violations=violations_data,
         output_video_url=output_video_url
     )
+

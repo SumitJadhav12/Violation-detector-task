@@ -54,6 +54,10 @@ class JobStatusResponse(BaseModel):
 class JobReportResponse(BaseModel):
     job_id: str
     status: JobStatus
+    message: Optional[str] = None
+    progress_percentage: float = 0.0
+    frames_processed: int = 0
+    total_frames: int = 0
     summary: Optional[VideoSummary] = None
     violations: List[ViolationItem] = []
     output_video_url: Optional[str] = None
