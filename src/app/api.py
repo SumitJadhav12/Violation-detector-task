@@ -4,6 +4,7 @@ FastAPI Router for Video Violation Detection Service
 
 import os
 import shutil
+import json
 from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
 
@@ -154,6 +155,47 @@ async def get_job_report(job_id: str, request: Request):
     return JobReportResponse(
         job_id=job.job_id,
         status=job.status,
+        summary=summary_data,
+        violations=violations_data,
+        output_video_url=output_video_url
+    )
+
+
+@router.get("/latest-report", response_model=JobReportResponse)
+async def get_latest_report(request: Request):
+    """Returns the most recent completed compliance report from outputs/reports/."""
+    report_dir = "outputs/reports"
+    if not os.path.exists(report_dir):
+        raise HTTPException(status_code=404, detail="No reports available yet")
+    files = [f for f in os.listdir(report_dir) if f.endswith(".json")]
+    if not files:
+        raise HTTPException(status_code=404, detail="No reports available yet")
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(report_dir, x)), reverse=True)
+    latest_file = os.path.join(report_dir, files[0])
+    with open(latest_file, "r") as f:
+        res = json.load(f)
+
+    base_url = str(request.base_url).rstrip("/")
+    summary_data = VideoSummary(**res.get("summary", {}))
+    violations_data: List[ViolationItem] = []
+    for v in res.get("violations", []):
+        snapshot_url = f"{base_url}/static/snapshots/{v['snapshot_filename']}"
+        violations_data.append(ViolationItem(
+            track_id=v["track_id"],
+            timestamp_sec=v["timestamp_sec"],
+            formatted_timestamp=v["formatted_timestamp"],
+            frame_index=v["frame_index"],
+            confidence=v["confidence"],
+            snapshot_filename=v["snapshot_filename"],
+            snapshot_url=snapshot_url
+        ))
+    output_video_url = None
+    if "output_video_name" in res:
+        output_video_url = f"{base_url}/static/videos/{res['output_video_name']}"
+
+    return JobReportResponse(
+        job_id="latest-report",
+        status=JobStatus.COMPLETED,
         summary=summary_data,
         violations=violations_data,
         output_video_url=output_video_url
