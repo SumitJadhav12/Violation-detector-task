@@ -4,6 +4,8 @@ Helmet Safety Violation Detection Microservice
 """
 
 import os
+import socket
+import threading
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -12,6 +14,53 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.api import router
 from src.app.dashboard import DASHBOARD_HTML
+
+
+def start_ipv6_bridge(port: int = 8000):
+    """
+    Binds to IPv6 ::1:8000 and forwards to IPv4 127.0.0.1:8000
+    so that both 'http://localhost:8000' and 'http://127.0.0.1:8000'
+    resolve instantly without connection errors on Windows.
+    """
+    def bridge_runner():
+        try:
+            s_v6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            s_v6.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s_v6.bind(('::1', port))
+            s_v6.listen(64)
+            while True:
+                client_v6, _ = s_v6.accept()
+                def handle_pair(c6):
+                    try:
+                        c4 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        c4.connect(('127.0.0.1', port))
+                        def pipe(src, dst):
+                            try:
+                                while True:
+                                    buf = src.recv(32768)
+                                    if not buf:
+                                        break
+                                    dst.sendall(buf)
+                            except Exception:
+                                pass
+                            finally:
+                                try: src.close()
+                                except: pass
+                                try: dst.close()
+                                except: pass
+                        threading.Thread(target=pipe, args=(c6, c4), daemon=True).start()
+                        threading.Thread(target=pipe, args=(c4, c6), daemon=True).start()
+                    except Exception:
+                        try: c6.close()
+                        except: pass
+                threading.Thread(target=handle_pair, args=(client_v6,), daemon=True).start()
+        except Exception:
+            pass
+
+    threading.Thread(target=bridge_runner, daemon=True).start()
+
+
+start_ipv6_bridge(8000)
 
 app = FastAPI(
     title="Helmet Safety Violation Detection API",
