@@ -18,7 +18,10 @@ data/raw/
 *.mp4
 *.avi
 *.mov
+*.zip
+*.tar.gz
 !outputs/sample_output.mp4
+
 
 # Model weights
 runs/
@@ -40,3 +43,7 @@ outputs/videos/*
 !outputs/videos/.gitkeep
 outputs/reports/*
 !outputs/reports/.gitkeep
+outputs/jobs/*
+!outputs/jobs/.gitkeep
+outputs/uploads/*
+!outputs/uploads/.gitkeep
